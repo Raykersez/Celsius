@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor Celsius a Fahrenheit - TensorFlow.js</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .input-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 18px;
+            transition: border 0.3s;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            display: none;
+        }
+        .result.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .examples {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+        .examples h3 {
+            color: #667eea;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .example-btn {
+            display: inline-block;
+            padding: 8px 15px;
+            margin: 5px;
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .example-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌡️ Conversor de Temperatura</h1>
+        <p class="subtitle">Usando Red Neuronal con TensorFlow.js</p>
+
+        <div class="input-group">
+            <label for="celsius">Temperatura en Celsius:</label>
+            <input type="number" id="celsius" placeholder="Ejemplo: 100" step="0.1">
+        </div>
+
+        <button id="convertBtn" onclick="convertir()">
+            Convertir a Fahrenheit
+        </button>
+
+        <div id="result" class="result"></div>
+
+        <div class="status" id="status">Cargando modelo...</div>
+
+        <div class="examples">
+            <h3>Prueba con estos valores:</h3>
+            <span class="example-btn" onclick="setExample(0)">0°C</span>
+            <span class="example-btn" onclick="setExample(100)">100°C</span>
+            <span class="example-btn" onclick="setExample(-40)">-40°C</span>
+            <span class="example-btn" onclick="setExample(37)">37°C</span>
+        </div>
+    </div>
+
+    <script>
+        let modelo = null;
+
+        async function cargarModelo() {
+            try {
+                document.getElementById('status').innerHTML = 'Cargando modelo<span class="loading"></span>';
+                document.getElementById('convertBtn').disabled = true;
+
+                // IMPORTANTE: Cambia esta URL por la ruta donde subas los archivos
+                // Si los archivos están en la misma carpeta que el HTML:
+                modelo = await tf.loadGraphModel('carpeta_salida/model.json');
+
+                document.getElementById('status').textContent = '✅ Modelo cargado correctamente';
+                document.getElementById('convertBtn').disabled = false;
+
+                console.log('Modelo cargado:', modelo);
+            } catch (error) {
+                document.getElementById('status').textContent = '❌ Error al cargar el modelo';
+                console.error('Error:', error);
+            }
+        }
+
+        async function convertir() {
+            const input = document.getElementById('celsius');
+            const resultDiv = document.getElementById('result');
+            const celsius = parseFloat(input.value);
+
+            if (isNaN(celsius)) {
+                alert('Por favor ingresa un número válido');
+                return;
+            }
+
+            if (!modelo) {
+                alert('El modelo aún no está cargado');
+                return;
+            }
+
+            try {
+                // Crear tensor de entrada
+                const inputTensor = tf.tensor2d([[celsius]], [1, 1]);
+
+                // Hacer la predicción
+                const prediction = modelo.predict(inputTensor);
+
+                // Obtener el resultado
+                const fahrenheit = await prediction.data();
+
+                // Mostrar resultado
+                resultDiv.textContent = `${celsius}°C = ${fahrenheit[0].toFixed(2)}°F`;
+                resultDiv.classList.add('show');
+
+                // Limpiar memoria
+                inputTensor.dispose();
+                prediction.dispose();
+
+            } catch (error) {
+                console.error('Error en la predicción:', error);
+                alert('Error al hacer la predicción');
+            }
+        }
+
+        function setExample(value) {
+            document.getElementById('celsius').value = value;
+            convertir();
+        }
+
+        // Permitir conversión con Enter
+        document.getElementById('celsius').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                convertir();
+            }
+        });
+
+        // Cargar el modelo al iniciar
+        cargarModelo();
+    </script>
+</body>
+</html>
